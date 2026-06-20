@@ -5,7 +5,7 @@ namespace HftDemo.Interface;
 public sealed unsafe class HftShm : IDisposable
 {
     private HftSharedRegion* _region;
-    private bool              _disposed;
+    private bool _disposed;
 
     public HftShm()
     {
@@ -25,7 +25,7 @@ public sealed unsafe class HftShm : IDisposable
         if (!_disposed && _region != null)
         {
             HftNative.hft_shm_cleanup(_region);
-            _region   = null;
+            _region = null;
             _disposed = true;
         }
     }

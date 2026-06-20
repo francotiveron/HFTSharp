@@ -5,9 +5,9 @@ open System.Threading
 open HftDemo.Interface
 
 let setParams (shm: HftShm) bid ask maxPos enabled (version: int64) =
-    Volatile.Write(&shm.Region.pars.bid_threshold,   bid)
-    Volatile.Write(&shm.Region.pars.ask_threshold,   ask)
-    Volatile.Write(&shm.Region.pars.max_position,    maxPos)
+    Volatile.Write(&shm.Region.pars.bid_threshold, bid)
+    Volatile.Write(&shm.Region.pars.ask_threshold, ask)
+    Volatile.Write(&shm.Region.pars.max_position, maxPos)
     Volatile.Write(&shm.Region.pars.trading_enabled, if enabled then 1 else 0)
     Thread.MemoryBarrier()
     Volatile.Write(&shm.Region.pars.strategy_version, nativeint version)
@@ -24,9 +24,9 @@ let tryReadEvent (shm: HftShm) : HftExecutionEvent voption =
         ValueSome ev
 
 let sideStr = function
-    |  1 -> "BUY "
+    | 1 -> "BUY "
     | -1 -> "SELL"
-    |  s -> sprintf "?%d?" s
+    | s -> sprintf "?%d?" s
 
 let eventStr = function
     | 0 -> "NEW"
@@ -51,7 +51,7 @@ let drainRing (shm: HftShm) =
     while cont do
         match tryReadEvent shm with
         | ValueSome ev -> printEvent ev
-        | ValueNone    -> cont <- false
+        | ValueNone -> cont <- false
 
 let runPhase (shm: HftShm) (seconds: float) =
     let deadline = DateTime.UtcNow.AddSeconds(seconds)
