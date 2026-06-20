@@ -56,6 +56,7 @@ add_custom_command(
                 -I /usr/lib/llvm-18/lib/clang/18/include
                 -I /usr/include
                 -I /usr/include/x86_64-linux-gnu
+                -std c++20
     DEPENDS "${BINDINGS_HEADER}"
     COMMENT "Regenerating C# P/Invoke bindings from hft_shm.h"
     VERBATIM

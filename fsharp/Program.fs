@@ -4,13 +4,18 @@ open System
 open System.Threading
 open HftDemo.Interface
 
-let setParams (shm: HftShm) bid ask maxPos enabled (version: int64) =
-    Volatile.Write(&shm.Region.pars.bid_threshold, bid)
-    Volatile.Write(&shm.Region.pars.ask_threshold, ask)
-    Volatile.Write(&shm.Region.pars.max_position, maxPos)
-    Volatile.Write(&shm.Region.pars.trading_enabled, if enabled then 1 else 0)
-    Thread.MemoryBarrier()
-    Volatile.Write(&shm.Region.pars.strategy_version, nativeint version)
+// Seqlock: bump to odd (write in progress), write params, bump to even (done).
+// Executor spins on odd before reading.
+let mutable private seqVer = 0
+
+let setParams (shm: HftShm) bid ask maxPos enabled =
+    seqVer <- seqVer + 2
+    Volatile.Write(&shm.Region.pars.strategy_version, seqVer - 1)  // odd  → write start
+    shm.Region.pars.bid_threshold <- bid
+    shm.Region.pars.ask_threshold <- ask
+    shm.Region.pars.max_position <- maxPos
+    shm.Region.pars.trading_enabled <- if enabled then 1 else 0
+    Volatile.Write(&shm.Region.pars.strategy_version, seqVer)       // even → write done
 
 let mutable tail : uint32 = 0u
 
@@ -64,21 +69,16 @@ let main _ =
     use shm = new HftShm()
     printfn "[commander] shared memory attached"
 
-    let mutable v = 0L
-
-    v <- v + 1L
-    printfn "[commander] Phase 1 — bid<=99.80  ask>=100.20  TRADING ON  (v%d)" v
-    setParams shm 99.80 100.20 5.0 true v
+    printfn "[commander] Phase 1 — bid<=99.80  ask>=100.20  TRADING ON"
+    setParams shm 99.80 100.20 5.0 true
     runPhase shm 5.0
 
-    v <- v + 1L
-    printfn "[commander] Phase 2 — KILL SWITCH  (v%d)" v
-    setParams shm 99.80 100.20 5.0 false v
+    printfn "[commander] Phase 2 — KILL SWITCH"
+    setParams shm 99.80 100.20 5.0 false
     runPhase shm 2.0
 
-    v <- v + 1L
-    printfn "[commander] Phase 3 — bid<=99.95  ask>=100.05  TRADING ON  (v%d)" v
-    setParams shm 99.95 100.05 5.0 true v
+    printfn "[commander] Phase 3 — bid<=99.95  ask>=100.05  TRADING ON"
+    setParams shm 99.95 100.05 5.0 true
     runPhase shm 5.0
 
     drainRing shm

@@ -11,16 +11,16 @@ namespace HftDemo.Interface
 
         public double max_position;
 
-        [NativeTypeName("int64_t")]
-        public nint strategy_version;
+        [NativeTypeName("atomic<int32_t>")]
+        public volatile int strategy_version;
 
         [NativeTypeName("int32_t")]
         public int trading_enabled;
 
-        [NativeTypeName("uint8_t[28]")]
+        [NativeTypeName("uint8_t[32]")]
         public __pad_e__FixedBuffer _pad;
 
-        [InlineArray(28)]
+        [InlineArray(32)]
         public partial struct __pad_e__FixedBuffer
         {
             public byte e0;
@@ -94,6 +94,10 @@ namespace HftDemo.Interface
         [DllImport("hft_shm", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         [return: NativeTypeName("HftSharedMemory")]
         public static extern void* hft_shm_init();
+
+        [DllImport("hft_shm", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        [return: NativeTypeName("HftSharedMemory")]
+        public static extern void* hft_shm_attach();
 
         [DllImport("hft_shm", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         public static extern void hft_shm_cleanup([NativeTypeName("HftSharedMemory")] void* shm);

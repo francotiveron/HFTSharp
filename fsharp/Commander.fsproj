@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>Commander</AssemblyName>
     <RootNamespace>Commander</RootNamespace>
     <Nullable>enable</Nullable>
@@ -16,5 +16,12 @@
   <ItemGroup>
     <ProjectReference Include="../dotnet/HftInterface/HftInterface.csproj" />
   </ItemGroup>
+
+  <!-- Copy native shared library alongside the output so LD_LIBRARY_PATH is not needed. -->
+  <Target Name="CopyNativeLib" AfterTargets="Build">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/../build/libhft_shm.so"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

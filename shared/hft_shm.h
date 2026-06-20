@@ -6,29 +6,24 @@
 #define HFT_RING_CAPACITY 1024
 #define HFT_CACHE_LINE    64
 
-/* Written by F# (commander), read by C++ (executor) on every tick.
- * Padded to one cache line to avoid false sharing with the ring. */
 typedef struct {
-    double  bid_threshold;    /* buy if price <= this  */
-    double  ask_threshold;    /* sell if price >= this */
-    double  max_position;     /* absolute position limit */
-    int64_t strategy_version; /* incremented by F# on each update */
-    int32_t trading_enabled;  /* kill switch: 0=halt, 1=trade */
-    uint8_t _pad[28];
+    double  bid_threshold;
+    double  ask_threshold;
+    double  max_position;
+    std::atomic<int32_t>  strategy_version;
+    int32_t trading_enabled;
+    uint8_t _pad[32];
 } __attribute__((aligned(HFT_CACHE_LINE))) HftStrategyParams;
 
-/* Written by C++ (executor), read by F# (commander). */
 typedef struct {
     int64_t timestamp_ns;
     int64_t order_id;
     double  price;
     double  quantity;
-    int32_t side;       /* 1=buy, -1=sell */
-    int32_t event_type; /* 0=new, 1=fill, 2=reject */
+    int32_t side;
+    int32_t event_type;
 } HftExecutionEvent;
 
-/* SPSC ring — C++ writes (write_head), F# reads (read_tail).
- * Counters on separate cache lines to prevent false sharing. */
 typedef struct {
     std::atomic<uint32_t> write_head;
     uint8_t _pad1[60];
@@ -45,6 +40,7 @@ typedef struct {
 typedef void* HftSharedMemory;
 
 extern "C" {
-HftSharedMemory hft_shm_init();
+HftSharedMemory hft_shm_init();    // executor: unlinks stale, creates fresh (OS-zeroed)
+HftSharedMemory hft_shm_attach();  // commander: opens existing shm, no reset
 void hft_shm_cleanup(HftSharedMemory shm);
 }

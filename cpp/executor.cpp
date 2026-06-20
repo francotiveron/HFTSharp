@@ -92,7 +92,8 @@ int main()
     HftExecutionRing* ring = &region->execution_ring;
 
     while (running) {
-        if (pars.strategy_version > 0) break;
+        int32_t v = pars.strategy_version.load(std::memory_order_acquire);
+        if (v > 0 && (v & 1) == 0) break;   // even and non-zero → write complete
         _mm_pause();
     }
     std::puts("[executor] params received — starting tick loop");
@@ -103,6 +104,26 @@ int main()
     uint32_t write_head = 0;
     int64_t next_tick = mono_ns();
 
+    int32_t cached_version = 0;
+    int32_t enabled = 0;
+    double bid_thr = 0.0, ask_thr = 0.0, max_pos = 0.0;
+
+    // Seqlock reader: spin while odd (write in progress), read, verify version unchanged.
+    auto reload_params = [&]() {
+        int32_t ver;
+        do {
+            do {
+                ver = pars.strategy_version.load(std::memory_order_acquire);
+                if (ver & 1) _mm_pause();
+            } while (ver & 1);                                              // spin while odd
+            enabled  = pars.trading_enabled;
+            bid_thr  = pars.bid_threshold;
+            ask_thr  = pars.ask_threshold;
+            max_pos  = pars.max_position;
+        } while (pars.strategy_version.load(std::memory_order_acquire) != ver);
+        cached_version = ver;
+    };
+
     while (running)
     {
         spin_until(next_tick);
@@ -110,10 +131,8 @@ int main()
 
         mid_price += dist(rng);
 
-        int32_t enabled = pars.trading_enabled;
-        double bid_thr = pars.bid_threshold;
-        double ask_thr = pars.ask_threshold;
-        double max_pos = pars.max_position;
+        if (pars.strategy_version.load(std::memory_order_acquire) != cached_version)
+            reload_params();
 
         if (enabled) [[likely]]
         {
