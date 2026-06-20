@@ -29,13 +29,41 @@ add_subdirectory(cpp)
 # The generated file is committed to source control so the build does not
 # require the generator to be present on every machine.
 # ---------------------------------------------------------------------------
+set(BINDINGS_HEADER      "${CMAKE_CURRENT_SOURCE_DIR}/shared/hft_shm.h")
 set(BINDINGS_OUTPUT_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/shared/generated")
 set(BINDINGS_OUTPUT_FILE "${BINDINGS_OUTPUT_DIR}/HftShm.g.cs")
 
-# ---------------------------------------------------------------------------
-# Binding regeneration is done manually via regen-bindings.sh.
-# CMake does not support '#' in custom target paths, and this project
-# directory contains '#'. The generated file is committed to source control
-# and only needs refreshing when shared/hft_shm.h changes.
-# ---------------------------------------------------------------------------
-message(STATUS "To regenerate C# bindings, run: ./regen-bindings.sh")
+# ClangSharp ships libclang.so alongside the tool; find it so the generator
+# can load it at runtime.  Override with -DLIBCLANG_DIR=... if your install
+# path differs.
+if(NOT DEFINED LIBCLANG_DIR)
+    set(LIBCLANG_DIR
+        "$ENV{HOME}/.dotnet/tools/.store/clangsharppinvokegenerator/21.1.8.3/clangsharppinvokegenerator.linux-x64/21.1.8.3/tools/any/linux-x64"
+    )
+endif()
+
+add_custom_command(
+    OUTPUT  "${BINDINGS_OUTPUT_FILE}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${BINDINGS_OUTPUT_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E env
+                "LD_LIBRARY_PATH=${LIBCLANG_DIR}:$ENV{LD_LIBRARY_PATH}"
+            ClangSharpPInvokeGenerator
+                --file            "${BINDINGS_HEADER}"
+                --namespace       HftDemo.Interface
+                --output          "${BINDINGS_OUTPUT_FILE}"
+                --methodClassName HftNative
+                --libraryPath     hft_shm
+                --config          unix-types
+                -I /usr/lib/llvm-18/lib/clang/18/include
+                -I /usr/include
+                -I /usr/include/x86_64-linux-gnu
+    DEPENDS "${BINDINGS_HEADER}"
+    COMMENT "Regenerating C# P/Invoke bindings from hft_shm.h"
+    VERBATIM
+)
+
+add_custom_target(generate_bindings
+    DEPENDS "${BINDINGS_OUTPUT_FILE}"
+)
+
+message(STATUS "C# binding target available: cmake --build <build-dir> --target generate_bindings")
