@@ -1,12 +1,7 @@
 #pragma once
 
 #include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <atomic>
 
 #define HFT_RING_CAPACITY 1024
 #define HFT_CACHE_LINE    64
@@ -35,10 +30,10 @@ typedef struct {
 /* SPSC ring — C++ writes (write_head), F# reads (read_tail).
  * Counters on separate cache lines to prevent false sharing. */
 typedef struct {
-    uint64_t write_head;
-    uint8_t _pad1[56];
-    uint64_t read_tail;
-    uint8_t _pad2[56];
+    std::atomic<uint32_t> write_head;
+    uint8_t _pad1[60];
+    std::atomic<uint32_t> read_tail;
+    uint8_t _pad2[60];
     HftExecutionEvent events[HFT_RING_CAPACITY];
 } __attribute__((aligned(HFT_CACHE_LINE))) HftExecutionRing;
 
@@ -49,10 +44,7 @@ typedef struct {
 
 typedef void* HftSharedMemory;
 
-HftSharedMemory hft_shm_init(void);
+extern "C" {
+HftSharedMemory hft_shm_init();
 void hft_shm_cleanup(HftSharedMemory shm);
-
-
-#ifdef __cplusplus
 }
-#endif

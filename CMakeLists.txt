@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
-project(hft_demo LANGUAGES C CXX)
+project(hft_demo LANGUAGES CXX)
 
-set(CMAKE_C_STANDARD   11)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -13,7 +12,7 @@ endif()
 # Shared library
 # Consumed by the C++ executor (link) and the F# commander (P/Invoke).
 # ---------------------------------------------------------------------------
-add_library(hft_shm SHARED shared/hft_shm.c)
+add_library(hft_shm SHARED shared/hft_shm.cpp)
 target_include_directories(hft_shm PUBLIC shared)
 target_link_libraries(hft_shm PRIVATE rt)
 target_compile_options(hft_shm PRIVATE -Wall -Wextra)
@@ -62,7 +61,7 @@ add_custom_command(
     VERBATIM
 )
 
-add_custom_target(generate_bindings
+add_custom_target(generate_bindings ALL
     DEPENDS "${BINDINGS_OUTPUT_FILE}"
 )
 

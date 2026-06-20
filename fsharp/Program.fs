@@ -12,15 +12,15 @@ let setParams (shm: HftShm) bid ask maxPos enabled (version: int64) =
     Thread.MemoryBarrier()
     Volatile.Write(&shm.Region.pars.strategy_version, nativeint version)
 
-let mutable tail : uint64 = 0UL
+let mutable tail : uint32 = 0u
 
 let tryReadEvent (shm: HftShm) : HftExecutionEvent voption =
-    let head = uint64 (Volatile.Read(&shm.Region.execution_ring.write_head))
+    let head = shm.Region.execution_ring.write_head
     if tail >= head then ValueNone
     else
-        let ev = shm.EventAt(int (tail % uint64 HftNative.HFT_RING_CAPACITY))
-        tail <- tail + 1UL
-        Volatile.Write(&shm.Region.execution_ring.read_tail, unativeint tail)
+        let ev = shm.EventAt(int (tail &&& uint32 (HftNative.HFT_RING_CAPACITY - 1)))
+        tail <- tail + 1u
+        shm.Region.execution_ring.read_tail <- tail
         ValueSome ev
 
 let sideStr = function

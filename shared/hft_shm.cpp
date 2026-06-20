@@ -6,21 +6,21 @@
 
 static const char* SHM_NAME = "/hft_demo";
 
-HftSharedMemory hft_shm_init(void)
+HftSharedMemory hft_shm_init()
 {
     int fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0600);
-    if (fd == -1) return NULL;
+    if (fd == -1) return nullptr;
 
     if (ftruncate(fd, sizeof(HftSharedRegion)) == -1) {
         close(fd);
-        return NULL;
+        return nullptr;
     }
 
-    void* ptr = mmap(NULL, sizeof(HftSharedRegion),
+    void* ptr = mmap(nullptr, sizeof(HftSharedRegion),
                      PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     close(fd);
 
-    if (ptr == MAP_FAILED) return NULL;
+    if (ptr == MAP_FAILED) return nullptr;
 
     mlock(ptr, sizeof(HftSharedRegion));
     return ptr;

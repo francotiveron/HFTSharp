@@ -1,6 +1,5 @@
 #include <cstdio>
 #include <csignal>
-#include <atomic>
 #include <random>
 #include <immintrin.h>
 #include <pthread.h>
@@ -8,9 +7,7 @@
 #include <sys/mman.h>
 #include <time.h>
 
-extern "C" {
 #include "../shared/hft_shm.h"
-}
 
 static constexpr int EXECUTOR_CPU = 2;
 static constexpr int RT_PRIORITY = 80;
@@ -60,11 +57,6 @@ static inline void spin_until(int64_t deadline_ns)
         _mm_pause();
 }
 
-// std::atomic_ref imposes acquire semantics on plain C struct fields without changing their layout.
-static inline double read_double(const double& f) { return std::atomic_ref<const double>(f).load(std::memory_order_acquire); }
-static inline int32_t read_int32(const int32_t& f) { return std::atomic_ref<const int32_t>(f).load(std::memory_order_acquire); }
-static inline int64_t read_int64(const int64_t& f) { return std::atomic_ref<const int64_t>(f).load(std::memory_order_acquire); }
-
 int main()
 {
     std::signal(SIGINT, on_signal);
@@ -100,7 +92,7 @@ int main()
     HftExecutionRing* ring = &region->execution_ring;
 
     while (running) {
-        if (read_int64(pars.strategy_version) > 0) break;
+        if (pars.strategy_version > 0) break;
         _mm_pause();
     }
     std::puts("[executor] params received — starting tick loop");
@@ -108,7 +100,7 @@ int main()
     double mid_price = PRICE_START;
     double position = 0.0;
     int64_t order_id = 0;
-    uint64_t write_head = 0;
+    uint32_t write_head = 0;
     int64_t next_tick = mono_ns();
 
     while (running)
@@ -118,10 +110,10 @@ int main()
 
         mid_price += dist(rng);
 
-        int32_t enabled = read_int32(pars.trading_enabled);
-        double bid_thr = read_double(pars.bid_threshold);
-        double ask_thr = read_double(pars.ask_threshold);
-        double max_pos = read_double(pars.max_position);
+        int32_t enabled = pars.trading_enabled;
+        double bid_thr = pars.bid_threshold;
+        double ask_thr = pars.ask_threshold;
+        double max_pos = pars.max_position;
 
         if (enabled) [[likely]]
         {
@@ -141,15 +133,15 @@ int main()
 
             if (fire) [[unlikely]]
             {
-                uint64_t tail = std::atomic_ref<uint64_t>(ring->read_tail).load(std::memory_order_acquire);
+                uint32_t tail = ring->read_tail.load(std::memory_order_acquire);
 
                 if (write_head - tail >= HFT_RING_CAPACITY) {
                     std::fprintf(stderr, "[executor] WARNING: ring full, dropping #%lld\n",
                                  (long long)ev.order_id);
                 } else {
-                    __builtin_prefetch(&ring->events[(write_head + 1) % HFT_RING_CAPACITY], 1, 0);
-                    ring->events[write_head % HFT_RING_CAPACITY] = ev;
-                    std::atomic_ref<uint64_t>(ring->write_head).store(++write_head, std::memory_order_release);
+                    __builtin_prefetch(&ring->events[(write_head + 1) & (HFT_RING_CAPACITY - 1)], 1, 0);
+                    ring->events[write_head & (HFT_RING_CAPACITY - 1)] = ev;
+                    ring->write_head.store(++write_head, std::memory_order_release);
                     std::printf("[executor] fill #%lld  side=%+d  price=%.4f  pos=%.0f\n",
                                 (long long)ev.order_id, ev.side, ev.price, position);
                 }
