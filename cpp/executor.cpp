@@ -18,8 +18,8 @@ static constexpr int64_t TICK_NS = 10'000'000LL;
 static constexpr double PRICE_START = 100.0;
 static constexpr double PRICE_DRIFT = 0.05;
 
-static std::atomic<bool> g_running{true};
-static void on_signal(int) { g_running.store(false, std::memory_order_relaxed); }
+static bool running = true;
+static void on_signal(int) { running = false; }
 
 // Pin to a dedicated core — eliminates cache misses from thread migration.
 // In production also set isolcpus= in kernel boot params.
@@ -99,7 +99,7 @@ int main()
     HftStrategyParams& pars = region->pars;
     HftExecutionRing* ring = &region->execution_ring;
 
-    while (g_running.load(std::memory_order_relaxed)) {
+    while (running) {
         if (read_int64(pars.strategy_version) > 0) break;
         _mm_pause();
     }
@@ -108,9 +108,10 @@ int main()
     double mid_price = PRICE_START;
     double position = 0.0;
     int64_t order_id = 0;
+    uint64_t write_head = 0;
     int64_t next_tick = mono_ns();
 
-    while (g_running.load(std::memory_order_relaxed))
+    while (running)
     {
         spin_until(next_tick);
         next_tick += TICK_NS;
@@ -140,17 +141,15 @@ int main()
 
             if (fire) [[unlikely]]
             {
-                uint64_t head = std::atomic_ref<uint64_t>(ring->write_head).load(std::memory_order_relaxed);
                 uint64_t tail = std::atomic_ref<uint64_t>(ring->read_tail).load(std::memory_order_acquire);
 
-                if (head - tail >= HFT_RING_CAPACITY) {
+                if (write_head - tail >= HFT_RING_CAPACITY) {
                     std::fprintf(stderr, "[executor] WARNING: ring full, dropping #%lld\n",
                                  (long long)ev.order_id);
                 } else {
-                    // Prefetch next slot to hide DRAM latency on a cold cache miss.
-                    __builtin_prefetch(&ring->events[(head + 1) % HFT_RING_CAPACITY], 1, 0);
-                    ring->events[head % HFT_RING_CAPACITY] = ev;
-                    std::atomic_ref<uint64_t>(ring->write_head).store(head + 1, std::memory_order_release);
+                    __builtin_prefetch(&ring->events[(write_head + 1) % HFT_RING_CAPACITY], 1, 0);
+                    ring->events[write_head % HFT_RING_CAPACITY] = ev;
+                    std::atomic_ref<uint64_t>(ring->write_head).store(++write_head, std::memory_order_release);
                     std::printf("[executor] fill #%lld  side=%+d  price=%.4f  pos=%.0f\n",
                                 (long long)ev.order_id, ev.side, ev.price, position);
                 }
