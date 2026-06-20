@@ -19,7 +19,7 @@ ClangSharpPInvokeGenerator \
     --output        "$OUTPUT" \
     --methodClassName HftNative \
     --libraryPath   hft_shm \
-    --config        unix-types \
+    --config        unix-types generate-macro-bindings \
     -I /usr/lib/llvm-18/lib/clang/18/include \
     -I /usr/include \
     -I /usr/include/x86_64-linux-gnu

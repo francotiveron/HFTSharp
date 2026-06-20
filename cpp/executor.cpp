@@ -146,14 +146,14 @@ int main()
     madvise(shm, sizeof(HftSharedRegion), MADV_HUGEPAGE);
 
     HftSharedRegion*   region = static_cast<HftSharedRegion*>(shm);
-    HftStrategyParams& params = region->params;
+    HftStrategyParams& pars = region->pars;
     HftExecutionRing*  ring   = &region->execution_ring;
 
     /* --- Spin-wait for F# to write a valid strategy version ---
      * _mm_pause rather than sleep: react within nanoseconds the
      * moment the commander sets strategy_version > 0. */
     while (g_running.load(std::memory_order_relaxed)) {
-        if (read_int64(params.strategy_version) > 0) break;
+        if (read_int64(pars.strategy_version) > 0) break;
         _mm_pause();
     }
     std::puts("[executor] strategy params received — starting tick loop");
@@ -179,10 +179,10 @@ int main()
          * Sees all param writes that F# released before incrementing
          * strategy_version. No torn reads on aligned doubles on x86-64,
          * but acquire is required for cross-core memory ordering. */
-        int32_t enabled = read_int32 (params.trading_enabled);
-        double  bid_thr = read_double(params.bid_threshold);
-        double  ask_thr = read_double(params.ask_threshold);
-        double  max_pos = read_double(params.max_position);
+        int32_t enabled = read_int32 (pars.trading_enabled);
+        double  bid_thr = read_double(pars.bid_threshold);
+        double  ask_thr = read_double(pars.ask_threshold);
+        double  max_pos = read_double(pars.max_position);
 
         if (enabled) [[likely]]
         {

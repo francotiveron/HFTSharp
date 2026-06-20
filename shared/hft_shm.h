@@ -53,10 +53,10 @@ typedef struct {
 
 /*
  * Full shared memory region mapped by both processes.
- * F# owns writes to params; C++ owns writes to execution_ring.
+ * F# owns writes to pars; C++ owns writes to execution_ring.
  */
 typedef struct {
-    HftStrategyParams params;
+    HftStrategyParams pars;
     HftExecutionRing  execution_ring;
 } HftSharedRegion;
 
@@ -69,7 +69,7 @@ void            hft_shm_cleanup(HftSharedMemory shm);
 
 /*
  * Ring write — called by the C++ executor via normal linkage (not P/Invoke).
- * F# reads the ring and writes params directly through the mapped pointer
+ * F# reads the ring and writes pars directly through the mapped pointer
  * using Volatile.Read / Volatile.Write — no P/Invoke required.
  */
 bool hft_ring_try_write(HftSharedMemory shm, const HftExecutionEvent* event);

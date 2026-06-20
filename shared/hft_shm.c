@@ -55,4 +55,3 @@ bool hft_ring_try_write(HftSharedMemory shm, const HftExecutionEvent* event)
     atomic_store_explicit((_Atomic uint64_t*)&ring->write_head, head + 1, memory_order_release);
     return true;
 }
-
