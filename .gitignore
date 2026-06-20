@@ -1,0 +1,25 @@
+# CMake build output
+build/
+cmake-build-*/
+
+# .NET build output
+dotnet/*/bin/
+dotnet/*/obj/
+fsharp/bin/
+fsharp/obj/
+
+# Generated shared library (built by CMake)
+*.so
+*.so.*
+*.dylib
+*.dll
+
+# NuGet packages
+*.nupkg
+
+# User-specific VS Code settings
+.vscode/settings.json
+
+# OS junk
+.DS_Store
+Thumbs.db
