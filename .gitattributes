@@ -1,0 +1,5 @@
+# Tell GitHub Linguist to ignore generated and interface files
+# so F# is detected as the primary language
+
+shared/generated/*.g.cs linguist-generated=true
+dotnet/**/*.cs          linguist-language=F#
