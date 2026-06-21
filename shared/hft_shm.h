@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <atomic>
 
-#define HFT_RING_CAPACITY 1024
+#define HFT_RING_CAPACITY 1024u
 #define HFT_CACHE_LINE    64
 
 typedef struct {

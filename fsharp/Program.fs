@@ -17,13 +17,16 @@ let setParams (shm: HftShm) bid ask maxPos enabled =
     shm.Region.pars.trading_enabled <- if enabled then 1 else 0
     Volatile.Write(&shm.Region.pars.strategy_version, seqVer)       // even → write done
 
+let [<Literal>] RingMask = HftNative.HFT_RING_CAPACITY - 1u
+
 let mutable tail : uint32 = 0u
 
 let tryReadEvent (shm: HftShm) : HftExecutionEvent voption =
     let head = shm.Region.execution_ring.write_head
+    
     if tail >= head then ValueNone
     else
-        let ev = shm.EventAt(int (tail &&& uint32 (HftNative.HFT_RING_CAPACITY - 1)))
+        let ev = shm.Events[int (tail &&& RingMask)]
         tail <- tail + 1u
         shm.Region.execution_ring.read_tail <- tail
         ValueSome ev

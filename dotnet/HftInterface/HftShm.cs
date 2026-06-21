@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace HftDemo.Interface;
 
 // Unsafe pointer work is confined here.
@@ -10,15 +12,12 @@ public sealed unsafe class HftShm : IDisposable
     public HftShm()
     {
         _region = (HftSharedRegion*)HftNative.hft_shm_init();
-        if (_region == null)
-            throw new InvalidOperationException("Failed to attach shared memory.");
+        if (_region == null) throw new InvalidOperationException("Failed to attach shared memory.");
     }
 
     public ref HftSharedRegion Region => ref *_region;
 
-    // [InlineArray] indexing is a C# 12 feature F# cannot use.
-    public ref HftExecutionEvent EventAt(int slot)
-        => ref _region->execution_ring.events[slot];
+    public Span<HftExecutionEvent> Events => MemoryMarshal.CreateSpan(ref _region->execution_ring.events[0], (int)HftNative.HFT_RING_CAPACITY);
 
     public void Dispose()
     {

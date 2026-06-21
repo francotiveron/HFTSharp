@@ -98,8 +98,8 @@ namespace HftDemo.Interface
         [DllImport("hft_shm", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         public static extern void hft_shm_cleanup([NativeTypeName("HftSharedMemory")] void* shm);
 
-        [NativeTypeName("#define HFT_RING_CAPACITY 1024")]
-        public const int HFT_RING_CAPACITY = 1024;
+        [NativeTypeName("#define HFT_RING_CAPACITY 1024u")]
+        public const uint HFT_RING_CAPACITY = 1024U;
 
         [NativeTypeName("#define HFT_CACHE_LINE 64")]
         public const int HFT_CACHE_LINE = 64;
