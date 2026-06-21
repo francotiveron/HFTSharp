@@ -96,10 +96,6 @@ namespace HftDemo.Interface
         public static extern void* hft_shm_init();
 
         [DllImport("hft_shm", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        [return: NativeTypeName("HftSharedMemory")]
-        public static extern void* hft_shm_attach();
-
-        [DllImport("hft_shm", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         public static extern void hft_shm_cleanup([NativeTypeName("HftSharedMemory")] void* shm);
 
         [NativeTypeName("#define HFT_RING_CAPACITY 1024")]

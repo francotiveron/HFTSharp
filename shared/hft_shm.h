@@ -40,7 +40,6 @@ typedef struct {
 typedef void* HftSharedMemory;
 
 extern "C" {
-HftSharedMemory hft_shm_init();    // executor: unlinks stale, creates fresh (OS-zeroed)
-HftSharedMemory hft_shm_attach();  // commander: opens existing shm, no reset
+HftSharedMemory hft_shm_init();
 void hft_shm_cleanup(HftSharedMemory shm);
 }

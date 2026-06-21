@@ -9,6 +9,14 @@
 
 #include "../shared/hft_shm.h"
 
+#ifdef HFT_VERBOSE
+#define HFT_LOG(fmt, ...) std::printf(fmt, ##__VA_ARGS__)
+#define HFT_WARN(msg) std::fputs(msg "\n", stderr)
+#else
+#define HFT_LOG(fmt, ...) ((void)0)
+#define HFT_WARN(msg) ((void)0)
+#endif
+
 static constexpr int EXECUTOR_CPU = 2;
 static constexpr int RT_PRIORITY = 80;
 static constexpr int64_t TICK_NS = 10'000'000LL;
@@ -108,18 +116,19 @@ int main()
     int32_t enabled = 0;
     double bid_thr = 0.0, ask_thr = 0.0, max_pos = 0.0;
 
-    // Seqlock reader: spin while odd (write in progress), read, verify version unchanged.
     auto reload_params = [&]() {
         int32_t ver;
+
         do {
             do {
                 ver = pars.strategy_version.load(std::memory_order_acquire);
                 if (ver & 1) _mm_pause();
-            } while (ver & 1);                                              // spin while odd
-            enabled  = pars.trading_enabled;
-            bid_thr  = pars.bid_threshold;
-            ask_thr  = pars.ask_threshold;
-            max_pos  = pars.max_position;
+            } while (ver & 1);
+
+            enabled = pars.trading_enabled;
+            bid_thr = pars.bid_threshold;
+            ask_thr = pars.ask_threshold;
+            max_pos = pars.max_position;
         } while (pars.strategy_version.load(std::memory_order_acquire) != ver);
         cached_version = ver;
     };
@@ -128,51 +137,39 @@ int main()
     {
         spin_until(next_tick);
         next_tick += TICK_NS;
-
         mid_price += dist(rng);
-
-        if (pars.strategy_version.load(std::memory_order_acquire) != cached_version)
-            reload_params();
+        if (pars.strategy_version.load(std::memory_order_acquire) != cached_version) reload_params();
 
         if (enabled) [[likely]]
         {
-            HftExecutionEvent ev{};
-            ev.timestamp_ns = wall_ns();
-            ev.order_id = ++order_id;
-            ev.price = mid_price;
-            bool fire = false;
+            int32_t side = 0;
+            if (mid_price <= bid_thr && position < max_pos) side = +1;
+            else if (mid_price >= ask_thr && position > -max_pos) side = -1;
 
-            if (mid_price <= bid_thr && position < max_pos) {
-                ev.quantity = 1.0; ev.side = 1; ev.event_type = 1;
-                position += 1.0; fire = true;
-            } else if (mid_price >= ask_thr && position > -max_pos) {
-                ev.quantity = 1.0; ev.side = -1; ev.event_type = 1;
-                position -= 1.0; fire = true;
-            }
-
-            if (fire) [[unlikely]]
+            if (side) [[unlikely]]
             {
                 uint32_t tail = ring->read_tail.load(std::memory_order_acquire);
-
-                if (write_head - tail >= HFT_RING_CAPACITY) {
-                    std::fprintf(stderr, "[executor] WARNING: ring full, dropping #%lld\n",
-                                 (long long)ev.order_id);
-                } else {
+                if (write_head - tail >= HFT_RING_CAPACITY) HFT_WARN("[executor] WARNING: ring full, dropping");
+                else {
+                    position += side;
+                    HftExecutionEvent ev{};
+                    ev.timestamp_ns = wall_ns();
+                    ev.order_id = ++order_id;
+                    ev.price = mid_price;
+                    ev.quantity = 1.0;
+                    ev.side = side;
+                    ev.event_type = 1;
                     __builtin_prefetch(&ring->events[(write_head + 1) & (HFT_RING_CAPACITY - 1)], 1, 0);
                     ring->events[write_head & (HFT_RING_CAPACITY - 1)] = ev;
                     ring->write_head.store(++write_head, std::memory_order_release);
-                    std::printf("[executor] fill #%lld  side=%+d  price=%.4f  pos=%.0f\n",
-                                (long long)ev.order_id, ev.side, ev.price, position);
+                    HFT_LOG("[executor] fill #%lld  side=%+d  price=%.4f  pos=%.0f\n", (long long)ev.order_id, ev.side, ev.price, position);
                 }
             }
         }
-        else
-        {
-            std::puts("[executor] HALTED");
-        }
+        else HFT_LOG("[executor] HALTED\n");
     }
 
-    std::puts("[executor] shutting down");
+    HFT_LOG("[executor] shutting down");
     hft_shm_cleanup(shm);
     return 0;
 }

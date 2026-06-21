@@ -8,4 +8,10 @@ target_compile_options(executor PRIVATE
     $<$<CONFIG:Release>:-O3 -march=native>
 )
 
+# Pass -DHFT_VERBOSE=1 to cmake to enable hot-path logging (disabled in Release).
+option(HFT_VERBOSE "Enable hot-path logging in executor" OFF)
+if(HFT_VERBOSE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(executor PRIVATE HFT_VERBOSE)
+endif()
+
 set_target_properties(executor PROPERTIES CXX_STANDARD 20)
